@@ -34,8 +34,8 @@ const byId=id=>document.getElementById(id);
 const VALID=new Set(tasks.map(t=>t.id));
 const GROUPS=['daily','weekly','optional-daily','optional-weekly'];
 const LABELS={daily:'일일',weekly:'주간','optional-daily':'선택 일일','optional-weekly':'선택 주간'};
-let state={done:{},started:{}},filter='all',undoState=null,storageOK=true;
-try{const raw=JSON.parse(localStorage.getItem(KEY)||'null');if(raw&&typeof raw==='object'){for(const id of VALID)if(raw.done?.[id]===true)state.done[id]=true;for(const g of GROUPS){const stamp=raw.started?.[g]??raw.started?.[g.replace('optional-','')];if(typeof stamp==='string')state.started[g]=stamp;}}}catch{storageOK=false;}
+let state={schema:2,done:{},started:{}},filter='all',undoState=null,storageOK=true;
+try{const raw=JSON.parse(localStorage.getItem(KEY)||'null');if(raw&&typeof raw==='object'){for(const id of VALID)if(raw.done?.[id]===true)state.done[id]=true;for(const g of GROUPS){const stamp=raw.schema===2?raw.started?.[g]:(raw.started?.[g]??raw.started?.[g.replace('optional-','')]);if(typeof stamp==='string')state.started[g]=stamp;}}}catch{storageOK=false;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{storageOK=false;}storageMessage()}
 function storageMessage(){if(!storageOK){byId('save-note').textContent='이 브라우저에서 체크를 저장할 수 없습니다. 현재 화면에서는 동작하지만 새로 열면 사라질 수 있습니다.';byId('save-note').classList.add('status-error')}}
 function redraw(){
