@@ -11,7 +11,9 @@
 <script src="assets/nte-legacy-data.js" defer></script>
 <script src="assets/data.js" defer></script>
 <script src="assets/core.js" defer></script>
+<script src="assets/sync-core.js" defer></script>
 <script src="assets/app.js" defer></script>
+<script src="assets/cloud.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">본문으로 건너뛰기</a>
@@ -29,6 +31,7 @@
 <div class="workspace">
 <header class="topbar"><div class="breadcrumb">PERSONAL SPACE <span>/</span> <b id="breadcrumb">전체 게임</b></div><div class="topbar-right"><span id="today"></span><button type="button" class="icon-button" data-action="settings" aria-label="설정과 백업 열기">⚙</button></div></header>
 <main id="main" tabindex="-1">
+<section id="cloud-panel" class="cloud-panel" aria-label="계정과 동기화"></section>
 <div id="storage-warning" class="warning" role="alert" hidden></div>
 <div class="page-heading"><div><p id="eyebrow" class="eyebrow">A LITTLE LESS TO REMEMBER</p><h1 id="page-title">오늘의 플레이 노트<span>.</span></h1><p id="page-subtitle" class="subtitle">할 일은 한곳에, 남은 시간은 게임에.</p></div><button type="button" class="button primary" id="add-button" data-action="add-task"><span aria-hidden="true">＋</span> 숙제 추가</button></div>
 <div id="overview" class="overview" aria-label="게임별 진행 현황"></div>

@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Existing HomeworkGame apps: preserve their existing authenticated access.
+    // Exclude the new private notebook namespace from this legacy wildcard.
+    match /{collection}/{document=**} {
+      allow read, write: if collection != 'gameNoteUsers' && request.auth != null;
+    }
+
+    // Game Note: gameNoteUsers/{uid}/entries/{entryId}
+    // Envelope: schema=1, rev (1..1e9), op (UUID), deleted (bool),
+    // value (validated item, or null tombstone), updatedAt (server timestamp).
+    // Ownership is immutable in the path. No public reads or hard deletes.
+    function isNotebookOwner(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && uid == '2u90sdxOrmcm6OxptfDDTLZODKl2';
+    }
+    function text(v, max) { return v is string && v.size() <= max; }
+    function id(v) { return text(v,91) && v.matches('^[a-z][a-z0-9-]{0,90}$'); }
+    function fields(v, names) {
+      return v is map && v.keys().hasAll(names) && v.keys().hasOnly(names);
+    }
+    function game(v) { return v in ['nte','arc','wuwa','zzz']; }
+    function integer(v, min, max) { return v is int && v >= min && v <= max; }
+    function note(v, key) {
+      return fields(v,['id','game','kind','title','body','pinned','updatedAt'])
+        && id(v.id) && key == 'note--' + v.id
+        && v.game in ['all','nte','arc','wuwa','zzz'] && v.kind in ['note','tip']
+        && text(v.title,120) && v.title.size() > 0 && text(v.body,20000)
+        && v.pinned is bool && text(v.updatedAt,100);
+    }
+    function task(v, key) {
+      return fields(v,['id','game','cycle','title','detail','target','optional','custom','sources'])
+        && id(v.id) && v.id.matches('^custom-.*') && key == 'task--' + v.id
+        && game(v.game) && v.cycle in ['daily','weekly','rotation','raid']
+        && (v.cycle != 'raid' || v.game == 'arc')
+        && text(v.title,120) && v.title.size() > 0 && text(v.detail,2000)
+        && integer(v.target,1,10000) && v.optional is bool && v.custom == true
+        && v.sources is list && v.sources.size() == 0;
+    }
+    function reset(v) {
+      return fields(v,['mode','offset','hour','minute','weekday'])
+        && v.mode in ['auto','manual'] && v.offset is number && v.offset >= -12 && v.offset <= 14
+        && integer(v.hour,0,23) && integer(v.minute,0,59) && integer(v.weekday,0,6);
+    }
+    function legacy(v) {
+      return fields(v,['migrated','legacyStarted']) && v.migrated is bool
+        && v.legacyStarted is map
+        && v.legacyStarted.keys().hasOnly(['daily','weekly','optional-daily','optional-weekly'])
+        && (!('daily' in v.legacyStarted) || text(v.legacyStarted.daily,100))
+        && (!('weekly' in v.legacyStarted) || text(v.legacyStarted.weekly,100))
+        && (!('optional-daily' in v.legacyStarted) || text(v.legacyStarted['optional-daily'],100))
+        && (!('optional-weekly' in v.legacyStarted) || text(v.legacyStarted['optional-weekly'],100));
+    }
+    function item(key,v) {
+      return (key.matches('^check--[a-z][a-z0-9-]{0,90}$')
+          && fields(v,['value','period']) && integer(v.value,0,10000) && text(v.period,150))
+        || (key.matches('^note--[a-z][a-z0-9-]{0,90}$') && note(v,key))
+        || (key.matches('^task--custom-[a-z0-9-]+$') && task(v,key))
+        || (key.matches('^hidden--[a-z][a-z0-9-]{0,90}$') && v == true)
+        || (key.matches('^reset--(nte|arc|wuwa|zzz)$') && reset(v))
+        || (key.matches('^period--(nte|arc|wuwa|zzz):(daily|weekly|rotation|raid)$') && integer(v,0,10000000))
+        || (key.matches('^raid--(map|objective|loadout|exit|memo)$') && text(v,2000))
+        || (key == 'meta--view' && fields(v,['hideDone','showOptional']) && v.hideDone is bool && v.showOptional is bool)
+        || (key == 'meta--legacy' && legacy(v));
+    }
+    function validEntry(key,d) {
+      return key.size() <= 110 && key.matches('^(check|note|task|hidden|reset|period|raid|meta)--[a-z][a-z0-9:-]{0,90}$')
+        && fields(d,['schema','rev','op','deleted','value','updatedAt'])
+        && d.schema == 1 && integer(d.rev,1,1000000000)
+        && text(d.op,100) && d.op.matches('^[a-zA-Z0-9-]{1,100}$')
+        && d.deleted is bool && d.updatedAt is timestamp && d.updatedAt == request.time
+        && ((d.deleted && d.value == null) || (!d.deleted && item(key,d.value)));
+    }
+    match /gameNoteUsers/{uid}/entries/{entryId} {
+      allow read: if isNotebookOwner(uid);
+      allow create: if isNotebookOwner(uid)
+        && validEntry(entryId,request.resource.data) && request.resource.data.rev == 1;
+      allow update: if isNotebookOwner(uid)
+        && validEntry(entryId,request.resource.data) && request.resource.data.rev == resource.data.rev + 1;
+    }
+  }
+}

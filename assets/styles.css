@@ -9,3 +9,11 @@
 /* Keep secondary information legible at normal desktop and mobile scaling. */
 .task-title{font-size:13px}.task-meta{font-size:10px;color:#6b7a60}.task-details>summary{font-size:10px;color:#6b7d60}.card-caption{color:#6d7c63}.panel-subhead,.panel-foot{color:#687b5c}.panel-reset{font-size:10px;color:#718465}.panel-identity small{color:#74836d}.source-card p,.dialog-hint{color:#68795b}.dialog-feedback{padding:11px 14px;border-radius:8px;background:#f3f0df;color:#79602d;font-size:12px;line-height:1.7;margin-bottom:18px}.field input,.field textarea,.note-body{font-size:13px}.note-actions button{min-height:30px}.task-actions button{min-height:28px}.sidebar-bottom .save-state{font-size:10px}
 @media(max-width:680px){.task-title{font-size:13px}.task-meta{font-size:10px}.task-details>summary{font-size:10px}.card-caption{font-size:9px}}
+
+/* Account and cross-device sync */
+.cloud-panel{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:16px 20px;margin-bottom:30px;border:1px solid #d8e0d4;background:#edf2e8;border-radius:14px;color:#263e32}
+.cloud-panel strong{font-size:14px}.cloud-panel p{font-size:12px;margin:5px 0 0;line-height:1.6}.cloud-panel .button{flex-shrink:0}
+.cloud-panel:empty{display:none}.cloud-attention{background:#fff4df;border-color:#e6cf9b;color:#634c26}
+.sync-conflict{border:1px solid var(--border,#dce1da);border-radius:10px;padding:14px;margin:12px 0}.sync-conflict h4{margin:0 0 10px;overflow-wrap:anywhere}
+.conflict-versions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}.conflict-versions pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:250px;overflow:auto;font:12px/1.7 inherit}.conflict-versions summary{cursor:pointer;font-size:13px}
+@media(max-width:680px){.cloud-panel{align-items:flex-start;padding:14px;margin-bottom:22px;flex-direction:column;gap:12px}.cloud-panel .button{width:100%}.conflict-versions{grid-template-columns:1fr}}
