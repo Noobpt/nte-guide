@@ -2,7 +2,7 @@
 'use strict';
 const C=window.GameNoteCore,S=window.GameNoteSyncCore,B=window.GameNoteBridge;
 const $=id=>document.getElementById(id),esc=B.escape,makeId=()=>crypto.randomUUID();
-let sdk,auth,db,user=null,cache=null,cacheKey='',lastState=B.getState(),unsub=null,epoch=0,ready=false,busy=false,timer=null,error='',chain=Promise.resolve(),localWrites=0,memoryOnly=false;
+let sdk,auth,db,user=null,cache=null,cacheKey='',lastState=B.getState(),unsub=null,epoch=0,ready=false,busy=false,timer=null,error='',chain=Promise.resolve(),localWrites=0,memoryOnly=false,loginPending=false,loginAttempt=0;
 const config={apiKey:"AIzaSyBgtl8HhVjtxLi-GJdzxJbCIkdwHd7Qmes",authDomain:"homeworkgame-5bc9a.firebaseapp.com",projectId:"homeworkgame-5bc9a",appId:"1:221669286956:web:68621864b168e78ed01d89"};
 const owner='2u90sdxOrmcm6OxptfDDTLZODKl2';
 function pendingCount(){return cache?Object.keys(cache.pending).length:0;}
@@ -10,7 +10,8 @@ function conflictCount(){return cache?Object.keys(cache.conflicts).filter(k=>cac
 function label(){return !user?'이 브라우저에 저장':error?'동기화 확인 필요':!navigator.onLine?'오프라인 · 기기에 보관':!ready?'클라우드 연결 중':conflictCount()?conflictCount()+'개 변경 확인 필요':pendingCount()||busy?'클라우드 저장 중':'클라우드 동기화 완료';}
 function paint(){
  const root=$('cloud-panel');if(!root)return;
- root.innerHTML='<div><strong>'+(user?esc(user.displayName||'내 계정')+'의 게임 노트':'어디서든 이어 쓰는 게임 노트')+'</strong><p>'+esc(error|| (user?label():'구글 계정으로 로그인하면 PC와 휴대폰의 기록이 이어집니다.'))+'</p></div><button type="button" class="button '+(!user?'primary':'')+'" data-cloud="'+(user?'manage':'login')+'" '+(!sdk?'disabled':'')+'>'+(user?'계정 · 동기화':'Google로 로그인')+'</button>';
+ const loginText=loginPending?'구글 로그인 창에서 계정을 선택해 주세요.':'구글 계정으로 로그인하면 PC와 휴대폰의 기록이 이어집니다.';
+ root.innerHTML='<div><strong>'+(user?esc(user.displayName||'내 계정')+'의 게임 노트':'어디서든 이어 쓰는 게임 노트')+'</strong><p>'+esc(error|| (user?label():loginText))+'</p></div><button type="button" class="button '+(!user?'primary':'')+'" data-cloud="'+(user?'manage':'login')+'" '+(!sdk||loginPending?'disabled':'')+'>'+(user?'계정 · 동기화':loginPending?'로그인 중…':'Google로 로그인')+'</button>';
  root.classList.toggle('cloud-attention',!!error||conflictCount()>0);
  if(B.storageStatus)B.storageStatus();
 }
@@ -64,7 +65,8 @@ function capture(){const out={};if(cache)for(const k of new Set([...Object.keys(
 function plain(snapshot){const d=snapshot.data();return {schema:d.schema,rev:d.rev,op:d.op,deleted:d.deleted,value:d.value,updatedAt:d.updatedAt?.toMillis?.()||0};}
 async function flush(){
  if(busy||!user||!ready||!navigator.onLine||memoryOnly)return;
- await chain;
+ const started=epoch;await chain;
+ if(started!==epoch||!user||!cache)return;
  const ticket=epoch,uid=user.uid;
  const work=Object.entries(cache.pending).filter(([k])=>!cache.conflicts[k]).slice(0,150).map(([key,p])=>({key,p:C.clone(p)}));
  if(!work.length){paint();return;}
@@ -98,7 +100,7 @@ async function connect(next){
  const ticket=++epoch;unsub?.();unsub=null;clearTimeout(timer);user=null;ready=false;cache=null;cacheKey='';error='';busy=false;
  B.replace(guest(),C.KEY,true);lastState=B.getState();
  if(!next){paint();return;}
- if(next.uid!==owner){error='이 메모장은 소유자의 구글 계정에서만 동기화할 수 있습니다.';paint();await sdk.signOut(auth);B.toast(error);return;}
+ if(next.uid!==owner){const message='이 메모장은 소유자의 구글 계정에서만 동기화할 수 있습니다.';await sdk.signOut(auth);error=message;paint();B.toast(message);return;}
  user=next;cacheKey=C.KEY+'-cloud-'+next.uid;
  try{
   cache=loadCache(next.uid,cacheKey);
@@ -128,7 +130,14 @@ function manage(){
   (keys.length?'<section class="settings-section"><h3>두 기기에서 바뀐 항목 '+keys.length+'개</h3><p>두 내용을 확인하고 남길 기록을 선택하세요. 선택 전까지 기기 기록을 보존합니다.</p>'+keys.map(k=>'<article class="sync-conflict"><h4>'+esc(cache.pending[k].value?.title||cache.remote[k]?.value?.title||k)+'</h4><div class="conflict-versions"><details><summary>이 기기 기록</summary><pre>'+esc(preview(cache.pending[k].value))+'</pre></details><details><summary>클라우드 기록</summary><pre>'+esc(preview(S.valueOf(cache.remote[k])))+'</pre></details></div><div class="backup-actions"><button type="button" class="button" data-cloud="resolve" data-key="'+esc(k)+'" data-choice="local">이 기기 기록 사용</button><button type="button" class="button" data-cloud="resolve" data-key="'+esc(k)+'" data-choice="remote">클라우드 기록 사용</button>'+(k.startsWith('note--')&&cache.pending[k].value?'<button type="button" class="button primary" data-cloud="resolve" data-key="'+esc(k)+'" data-choice="both">두 메모 모두 보관</button>':'')+'</div></article>').join('')+'</section>':'')+
   '<div class="dialog-actions"><button type="button" class="button" data-cloud="logout">로그아웃</button><button type="button" class="button primary" data-action="close-dialog">닫기</button></div>');
 }
-async function login(){if(!sdk)return;error='';paint();try{const provider=new sdk.GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});await sdk.signInWithPopup(auth,provider);}catch(err){fail(err);}}
+async function login(){
+ if(!sdk||loginPending)return;
+ const attempt=++loginAttempt;loginPending=true;error='';paint();
+ const hint=setTimeout(()=>{if(attempt===loginAttempt&&!user){loginPending=false;error='로그인 창이 보이지 않으면 Chrome, Edge 또는 Safari에서 이 사이트를 열어 로그인해 주세요.';paint();}},12000);
+ try{const provider=new sdk.GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});await sdk.signInWithPopup(auth,provider);}
+ catch(err){if(attempt===loginAttempt)fail(err);}
+ finally{clearTimeout(hint);if(attempt===loginAttempt){loginPending=false;paint();}}
+}
 async function boot(){
  try{
   const parts=await Promise.all([
